@@ -70,6 +70,20 @@ Shows: agency name, agency code (brand teal `#74C3B7` in dark mode), Appointed/U
 - **Appointed Date card** — swaps to "Sold Date" when the agency has been book-rolled.
 - Other cards: Address, Contact, Bill methods (Agency Bill / Direct Bill / Premium Finance), Affiliations, Direct Appointments (Workers Comp).
 
+### 3.3 NPN (National Producer Number)
+
+**NPN is a system field, not a user field.** It is fetched automatically from NIPR and surfaced read-only everywhere it appears.
+
+**Rules:**
+- **Source**: NIPR. The backend pulls it (no user-triggered "Verify" button in the UI). A prior Phase 1 flow had a `Verify with NIPR` button in the Add Agency form; that button was pulled on 2026-11-02 — NPN now shows up when the backend has populated it, otherwise shows the empty placeholder.
+- **Where it displays**: Agency Detail (Overview tab info row) and the Admin / client surface. Not surfaced anywhere else today.
+- **Edit permissions**: **nobody edits it in the UI** — not external agency users, not Shannon's team, not BTIS super admin. The field is rendered as a locked read-only input (muted background + lock icon) in both the Add Agency and Edit Agency forms, with a tooltip reading "NPN populated by backend / NIPR".
+- **Empty state**: legacy / older agencies may not have an NPN on record. Render `—` as the value and keep the lock treatment. Do **not** show a "please enter NPN" prompt or an error state — missing NPN is a backend-sourcing concern, not a user action.
+- **Onboarding**: the Add Agency form has no NPN entry field. Shannon's team enters License # + State and the backend takes care of looking up NPN separately.
+- **ITC form**: ITC does not have an NPN field and does not need one. No ITC Pending Updates row for NPN; no mapping; no sync entry.
+
+**Why this rule:** NPN is an authoritative identifier that must match NIPR. A hand-typed value is authoritative in the wrong direction — if the user types a value that disagrees with NIPR, the whole record becomes untrustworthy. Treating NPN like Agency Code (system-assigned, read-only) prevents that failure mode entirely.
+
 ---
 
 ## 4. Recognition Tags
