@@ -59,6 +59,12 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
   // flip it off (coachmark X / coachmark backdrop click), and the shell runs
   // the 8s auto-dismiss timer so it stays in sync across both surfaces.
   const [teamSetupSpotlightActive, setTeamSetupSpotlightActive] = useState(false);
+  // One-shot guard: the full landing routine (jump to Admin + blur +
+  // bell halo + toast) fires on the FIRST modal dismiss only. Subsequent
+  // dismisses — e.g. the user re-opened the modal from the persistent
+  // Users-tab coachmark and X'd again — just close the modal quietly, no
+  // repeat spotlight.
+  const [teamSetupSpotlightFired, setTeamSetupSpotlightFired] = useState(false);
 
   useEffect(() => {
     if (!teamSetupSpotlightActive) return;
@@ -78,15 +84,19 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
   };
   const dismissTeamSetupModal = () => {
     setTeamSetupModalDismissed(true);
-    // Three-part landing: jump to Admin → raise the coachmark on the Users
-    // tab (+ halo the bell) → pop the top-right toast as reinforcement. Any
-    // one of them is enough; together they make "the prompt isn't lost"
-    // obvious.
+    // Spotlight landing only fires ONCE. First-dismiss gets the full
+    // three-part attention beat (jump to Admin → coachmark lift + bell
+    // halo → top-right hint toast). Second+ dismiss (user reopened via
+    // the persistent Users-tab coachmark) just closes the modal — no
+    // repeat blur / halo / toast, since they already know where everything
+    // lives.
+    if (teamSetupSpotlightFired) return;
     setActivePage("Admin");
     setTeamSetupSpotlightUsers(true);
     setTeamSetupSpotlightActive(true);
     setTeamSetupMountKey(k => k + 1);
     setTeamSetupDismissHintOpen(true);
+    setTeamSetupSpotlightFired(true);
   };
 
   if (activePage === "Website") {
@@ -136,6 +146,7 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
             onSpotlightConsumed={() => setTeamSetupSpotlightUsers(false)}
             spotlightActive={teamSetupSpotlightActive}
             onSpotlightDismiss={() => setTeamSetupSpotlightActive(false)}
+            teamSetupPending={!teamSetupDone}
             onOpenTeamSetup={openTeamSetup}
           />
         );

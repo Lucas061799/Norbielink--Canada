@@ -743,7 +743,7 @@ const StatusPill = ({ status, isDark }: { status: string; isDark: boolean }) => 
   </span>
 );
 
-function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleStar, inactiveUserIds, setInactiveUserIds, statusInactiveUserIds, setStatusInactiveUserIds, removedUserIds, setRemovedUserIds, bookRolled, setBookRolled, allAgencies, initialTab, onNavigateToAgency, viewMode = "internal", itcRecords, setItcRecords, isSuperAdmin = true, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, onOpenTeamSetup }: {
+function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleStar, inactiveUserIds, setInactiveUserIds, statusInactiveUserIds, setStatusInactiveUserIds, removedUserIds, setRemovedUserIds, bookRolled, setBookRolled, allAgencies, initialTab, onNavigateToAgency, viewMode = "internal", itcRecords, setItcRecords, isSuperAdmin = true, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup }: {
   agency: AgencyDetail;
   isDark: boolean;
   onBack: () => void;
@@ -792,6 +792,11 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
   // onSpotlightDismiss (any-click-outside, X, or its 8s timer).
   spotlightActive?: boolean;
   onSpotlightDismiss?: () => void;
+  // Persistent-pending state: while team setup is not done, the Users-tab
+  // coachmark stays visible as the standing entry back into bulk setup.
+  // The spotlight effects (dim backdrop, bell halo, coachmark lift) layer
+  // on top transiently when it's `spotlightActive`.
+  teamSetupPending?: boolean;
   // Optional: when supplied, the spotlight coachmark surfaces an "Open bulk
   // setup" button that reopens the shell-owned Team Setup modal. Lets users
   // jump back to the one-shot "set everyone at once" flow without hunting
@@ -942,9 +947,11 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
     setDetailTab("users");
     onSpotlightConsumed?.();
   }, [spotlightUsers, onSpotlightConsumed]);
-  // Alias so the existing JSX reads naturally. Dismiss handlers call
-  // `onSpotlightDismiss` (shell-owned) instead of a local setter.
-  const usersSpotlightCallout = spotlightActive;
+  // The coachmark banner itself persists for the whole pending window
+  // (standing entry back into bulk setup). The spotlight layer — dim
+  // backdrop, bell halo (shell-owned), raised shadow — is transient and
+  // tied to `spotlightActive` only.
+  const coachmarkVisible = teamSetupPending;
   const dismissSpotlight = () => onSpotlightDismiss?.();
   const [isEditing, setIsEditing]           = useState(false);
   const [editExpanded, setEditExpanded]     = useState(false);
@@ -7937,12 +7944,11 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
         {/* ── Users tab ── */}
         {detailTab === "users" && (
           <>
-            {/* Spotlight dim/blur backdrop — only while the Team Setup
-                coachmark is up. Dims + softly blurs the entire chrome so the
-                coachmark alone reads as the lit island below. The backdrop
-                itself is clickable: a tap anywhere outside the coachmark
-                dismisses the spotlight (same as the X). */}
-            {usersSpotlightCallout && (
+            {/* Spotlight dim/blur backdrop — ONLY on the transient attention
+                beat right after modal dismiss. Clicking anywhere clears the
+                spotlight; the coachmark banner itself stays as the persistent
+                entry (see render guarded on `coachmarkVisible` below). */}
+            {spotlightActive && (
               <div
                 className="fixed inset-0"
                 onClick={() => dismissSpotlight()}
@@ -7963,31 +7969,28 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
               className="flex flex-col"
               onClick={() => { setUserMenuId(null); setUserMenuPos(null); setJobTitleOpen(false); }}
             >
-            {/* Team-setup coachmark — raised by the shell when the user X's
-                the first-run Team Setup modal, so after landing on this tab
-                they immediately see where to assign admins & titles.
-                Styled to match the Legacy BTIS banner below (neutral card +
-                razz-gradient icon stroke + razz-gradient title text) so the
-                two push-prompts on this tab read as one family instead of
-                shouting with a hard razz border. Auto-dismisses in 8s or on
-                the X. */}
-            {usersSpotlightCallout && (
+            {/* Team-setup coachmark — PERSISTENT standing entry back into
+                bulk setup. Visible for the entire pending window (not just
+                the first-dismiss beat). On the transient `spotlightActive`
+                moment it lifts above the dim backdrop with a shadow; the
+                rest of the time it sits flush as a normal informational
+                banner matching the Legacy BTIS banner family. */}
+            {coachmarkVisible && (
               <div
                 className="rounded-xl p-4 mb-4 flex items-start gap-3"
-                // Click within the coachmark should NOT dismiss (the user may
-                // be reading or heading for the Open bulk setup button).
-                // Only backdrop clicks dismiss — see the backdrop above.
                 onClick={e => e.stopPropagation()}
                 style={{
                   background: isDark ? "#1E2240" : "#F9FAFB",
                   border: `1px solid ${c.border}`,
-                  // Lifts the coachmark above the fixed dim backdrop so it
-                  // reads as the sole lit island.
-                  position: "relative",
-                  zIndex: 41,
-                  boxShadow: isDark
-                    ? "0 20px 48px rgba(0,0,0,0.45)"
-                    : "0 20px 48px rgba(0,0,0,0.12)",
+                  // Lift above the dim backdrop only while spotlight is on.
+                  position: spotlightActive ? "relative" : undefined,
+                  zIndex: spotlightActive ? 41 : undefined,
+                  boxShadow: spotlightActive
+                    ? (isDark
+                        ? "0 20px 48px rgba(0,0,0,0.45)"
+                        : "0 20px 48px rgba(0,0,0,0.12)")
+                    : undefined,
+                  transition: "box-shadow 220ms ease-out",
                 }}
               >
                 <svg className="w-5 h-5 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -8034,19 +8037,6 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                     Open bulk setup
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => dismissSpotlight()}
-                  aria-label="Dismiss tip"
-                  className="flex-shrink-0 cursor-pointer self-start"
-                  style={{
-                    background: "transparent", border: "none", padding: 2,
-                    color: isDark ? "#8B8FA8" : "#9CA3AF",
-                    marginTop: 2, marginRight: -4,
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
             )}
             {/* Legacy BTIS auto-detect banner — shown when there are new
@@ -11225,7 +11215,7 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
 }
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
-export default function Agencies({ isDark, clientMode = false, initialTab, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, onOpenTeamSetup }: { isDark: boolean; clientMode?: boolean; initialTab?: DetailTab; pageTitleOverride?: string; spotlightUsers?: boolean; onSpotlightConsumed?: () => void; spotlightActive?: boolean; onSpotlightDismiss?: () => void; onOpenTeamSetup?: () => void }) {
+export default function Agencies({ isDark, clientMode = false, initialTab, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup }: { isDark: boolean; clientMode?: boolean; initialTab?: DetailTab; pageTitleOverride?: string; spotlightUsers?: boolean; onSpotlightConsumed?: () => void; spotlightActive?: boolean; onSpotlightDismiss?: () => void; teamSetupPending?: boolean; onOpenTeamSetup?: () => void }) {
   const [search, setSearch]           = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   // Per-tab card-selection state — used to visually pin the active stat card
@@ -11883,6 +11873,7 @@ export default function Agencies({ isDark, clientMode = false, initialTab, pageT
         onSpotlightConsumed={onSpotlightConsumed}
         spotlightActive={spotlightActive}
         onSpotlightDismiss={onSpotlightDismiss}
+        teamSetupPending={teamSetupPending}
         onOpenTeamSetup={onOpenTeamSetup}
       />
     );
