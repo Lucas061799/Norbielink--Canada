@@ -10274,77 +10274,15 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
   const [website, setWebsite]         = useState(initialDraft?.website ?? "");
   const [phone, setPhone]             = useState(initialDraft?.phone ?? "");
   const [tollFree, setTollFree]       = useState(initialDraft?.tollFree ?? "");
-  const [npn, setNpn]                 = useState(initialDraft?.npn ?? "");
+  const [npn] = useState(initialDraft?.npn ?? "");
   const [licenseNo, setLicenseNo]     = useState(initialDraft?.licenseNo ?? "");
   const [licenseExp, setLicenseExp]   = useState(initialDraft?.licenseExp ?? "03/24/2026");
   const [eoPolicyNo, setEoPolicyNo]   = useState(initialDraft?.eoPolicyNo ?? "");
   const [eoExp, setEoExp]             = useState(initialDraft?.eoExp ?? "03/24/2026");
-  // ── NIPR verification (phase 1 Add Agency flow) ──────────────────
-  // Shannon enters License # + State → clicks "Verify with NIPR" →
-  // mock async check. If NIPR says the license is expired, block the
-  // Save button and show inline error. If valid, auto-populate NPN
-  // (NPN is NIPR-only — never user-typed) and the Expiration Date.
-  // Prototype mocks NIPR: license numbers ending in "0" come back
-  // expired; everything else comes back valid with a fresh +2y date.
-  type NiprState = "idle" | "checking" | "valid" | "expired";
-  const [niprState, setNiprState] = useState<NiprState>(initialDraft?.npn ? "valid" : "idle");
-  const [niprExpiredOn, setNiprExpiredOn] = useState<string>("");
-  // NIPR's first call needs Agency Name + License # + State per the
-  // 2026-10-27 meeting with Jatin — all three are required to look up
-  // the NPN. Button is disabled until the three fields are filled in.
-  const canVerifyNipr = agencyName.trim().length > 0
-    && licenseNo.trim().length > 0
-    && stateVal.trim().length > 0
-    && niprState !== "checking";
-  const verifyNipr = () => {
-    if (!canVerifyNipr) return;
-    setNiprState("checking");
-    setNiprExpiredOn("");
-    window.setTimeout(() => {
-      const trimmed = licenseNo.trim();
-      const isExpired = /0$/.test(trimmed);
-      if (isExpired) {
-        const past = new Date(); past.setDate(past.getDate() - 42);
-        const dateStr = `${String(past.getMonth() + 1).padStart(2, "0")}/${String(past.getDate()).padStart(2, "0")}/${past.getFullYear()}`;
-        setNiprState("expired");
-        setNiprExpiredOn(dateStr);
-        setNpn("");
-      } else {
-        const future = new Date(); future.setFullYear(future.getFullYear() + 2);
-        const dateStr = `${String(future.getMonth() + 1).padStart(2, "0")}/${String(future.getDate()).padStart(2, "0")}/${future.getFullYear()}`;
-        const mockNpn = String(Math.floor(10000000 + Math.random() * 90000000));
-        setNiprState("valid");
-        setLicenseExp(dateStr);
-        setNpn(mockNpn);
-      }
-    }, 700);
-  };
-  // Any edit to License # or State invalidates the NIPR verification
-  // and forces a re-check. Also wipes the NIPR-sourced NPN so the UI
-  // doesn't show stale data.
-  const invalidateNipr = () => {
-    if (niprState !== "idle") {
-      setNiprState("idle");
-      setNiprExpiredOn("");
-      setNpn("");
-    }
-  };
-  // Reset NIPR state when any of the three inputs feeding the NIPR
-  // call (Agency Name / License # / State) changes after verification.
-  // Covers the address-block state path which doesn't go through our
-  // input onChange.
-  const niprCheckedKeyRef = useRef<string>("");
-  useEffect(() => {
-    const currentKey = `${agencyName.trim()}|${licenseNo.trim()}|${stateVal.trim()}`;
-    if (niprState === "valid" || niprState === "expired") {
-      if (niprCheckedKeyRef.current && niprCheckedKeyRef.current !== currentKey) {
-        invalidateNipr();
-      }
-    } else if (niprState === "checking") {
-      niprCheckedKeyRef.current = currentKey;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agencyName, licenseNo, stateVal]);
+  // NIPR verification (phase 1 Add Agency flow) removed on 2026-11-02.
+  // Fields License # / Expiration Date / NPN are back to plain manual
+  // entry. Re-add verify + state machine when the Phase 1 NIPR
+  // integration ships.
   const [affiliations, setAffiliations] = useState<Set<string>>(new Set(initialDraft?.affiliations ?? ["AAA/ACG (AC364)"]));
   const [workersComp, setWorkersComp]   = useState<Set<string>>(new Set(initialDraft?.workersComp ?? ["AIG"]));
   const [badges, setBadges]             = useState<Set<string>>(new Set(initialDraft?.badges ?? []));
@@ -10893,83 +10831,30 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
             <div />
           </div>
 
-          {/* License + Expiry + NPN. Phase 1 NIPR flow: Shannon types
-              License # + chooses State → clicks "Verify with NIPR" →
-              Expiration Date and NPN get populated (expired licenses
-              block the Save button). */}
-          <div className="grid grid-cols-3 gap-6 mb-3">
+          {/* License + Expiry + NPN. NIPR verify flow pulled on 2026-11-02 —
+              fields are back to plain manual entry; re-add verify + lock
+              treatment when the Phase 1 NIPR integration ships. */}
+          <div className="grid grid-cols-3 gap-6 mb-6">
             <div>
               <label style={labelStyle}>License Number:</label>
               <input value={licenseNo}
-                onChange={e => { setLicenseNo(e.target.value); runValidate("licenseNo", e.target.value); invalidateNipr(); }}
+                onChange={e => { setLicenseNo(e.target.value); runValidate("licenseNo", e.target.value); }}
                 style={{ ...inputStyle, ...errorStyleFor("licenseNo") }} />
               <ErrMsg k="licenseNo" />
             </div>
             <div>
               <label style={labelStyle}>Expiration Date:</label>
-              {/* NIPR-populated and locked once verified. Date picker
-                  only unlocks if the agent re-verifies after changing
-                  the license number. */}
-              {niprState === "valid"
-                ? (
-                  <div className="relative">
-                    <input value={licenseExp} readOnly aria-readonly="true" title="Populated from NIPR"
-                      style={{ ...inputStyle, paddingRight: 34, background: isDark ? "rgba(255,255,255,0.04)" : "#F9FAFB", color: c.muted, cursor: "not-allowed" }} />
-                    <Lock className="w-3.5 h-3.5 absolute pointer-events-none" style={{ right: 10, top: "50%", transform: "translateY(-50%)", color: c.muted }} />
-                  </div>
-                )
-                : <DatePicker value={licenseExp} onChange={setLicenseExp} inputStyle={inputStyle} c={c as any} btnGrad={btnGrad} font={font} />}
+              <DatePicker value={licenseExp} onChange={setLicenseExp} inputStyle={inputStyle} c={c as any} btnGrad={btnGrad} font={font} />
             </div>
             <div>
               <label style={labelStyle}>NPN:</label>
-              {/* NPN is always locked here — comes from NIPR after a
-                  successful verify, never typed. Agency Code pattern. */}
+              {/* Locked — NPN is never user-typed. Shown read-only here
+                  (populated by a backend / NIPR source when wired up). */}
               <div className="relative">
-                <input value={npn || "—"} readOnly aria-readonly="true" title="Populated from NIPR"
+                <input value={npn || "—"} readOnly aria-readonly="true" title="NPN populated by backend / NIPR"
                   style={{ ...inputStyle, paddingRight: 34, background: isDark ? "rgba(255,255,255,0.04)" : "#F9FAFB", color: c.muted, cursor: "not-allowed" }} />
                 <Lock className="w-3.5 h-3.5 absolute pointer-events-none" style={{ right: 10, top: "50%", transform: "translateY(-50%)", color: c.muted }} />
               </div>
-            </div>
-          </div>
-
-          {/* NIPR verification row */}
-          <div className="mb-6">
-            <div className="flex items-center gap-3 flex-wrap">
-              <button type="button"
-                onClick={verifyNipr}
-                disabled={!canVerifyNipr}
-                className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all"
-                style={{
-                  ...font,
-                  background: canVerifyNipr ? btnGrad : (isDark ? "rgba(255,255,255,0.08)" : "#F3F4F6"),
-                  color: canVerifyNipr ? "#FFFFFF" : c.muted,
-                  border: "none",
-                  cursor: canVerifyNipr ? "pointer" : "not-allowed",
-                  opacity: canVerifyNipr ? 1 : 0.6,
-                }}
-                onMouseEnter={e => { if (canVerifyNipr) e.currentTarget.style.filter = "brightness(1.08)"; }}
-                onMouseLeave={e => (e.currentTarget.style.filter = "none")}>
-                {niprState === "checking"
-                  ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />Checking NIPR…</>
-                  : niprState === "valid"
-                    ? <><Check className="w-3.5 h-3.5" />Re-verify with NIPR</>
-                    : <><RefreshCw className="w-3.5 h-3.5" />Verify with NIPR</>}
-              </button>
-              {niprState === "idle" && (
-                <span className="text-[11.5px]" style={{ ...font, color: c.muted }}>
-                  Fill in Agency Name, License Number, and State, then verify to look up NPN and expiration from NIPR.
-                </span>
-              )}
-              {niprState === "valid" && (
-                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium" style={{ ...font, color: "#A614C3" }}>
-                  <Check className="w-3.5 h-3.5" />License is active per NIPR (expires {licenseExp}).
-                </span>
-              )}
-              {niprState === "expired" && (
-                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold" style={{ ...font, color: "#DC2626" }}>
-                  <AlertCircle className="w-3.5 h-3.5" />License expired on {niprExpiredOn} per NIPR. This agency can't be added until the license is renewed.
-                </span>
-              )}
             </div>
           </div>
 
@@ -11066,23 +10951,17 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
               Discard
             </button>
-            {/* Submit is blocked when the license came back expired
-                from NIPR — phase 1 rule: don't let Shannon create an
-                agency whose license isn't currently active. */}
             <button
-              onClick={() => { if (niprState !== "expired") handleSubmit(); }}
-              disabled={niprState === "expired"}
-              title={niprState === "expired" ? "Can't submit — the license is expired per NIPR." : undefined}
+              onClick={() => handleSubmit()}
               className="text-[13px] font-semibold text-white transition-all"
               style={{
                 ...font,
                 background: btnGrad,
-                padding:"10px 24px",
-                borderRadius:"5.58px",
-                opacity: niprState === "expired" ? 0.5 : 1,
-                cursor: niprState === "expired" ? "not-allowed" : "pointer",
+                padding: "10px 24px",
+                borderRadius: "5.58px",
+                cursor: "pointer",
               }}
-              onMouseEnter={e => { if (niprState !== "expired") e.currentTarget.style.filter = "brightness(1.10)"; }}
+              onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.10)")}
               onMouseLeave={e => (e.currentTarget.style.filter = "none")}>
               Submit
             </button>
