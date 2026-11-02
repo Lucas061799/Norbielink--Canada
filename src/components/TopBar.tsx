@@ -18,6 +18,17 @@ interface TopBarProps {
   teamSetupBellSpotlight?: boolean;
   onOpenTeamSetup?: () => void;
   onDismissTeamSetupBell?: () => void;
+  // When set, the top bar surfaces a compact "Acting as <name>" chip beside
+  // the bell so the internal user is reminded on every page that quotes they
+  // start will post under this external user's account. Cleared via
+  // onExitImpersonation (the chip's inline Exit).
+  impersonation?: { userName: string; userEmail: string; agencyName: string; agencyCode: string } | null;
+  onExitImpersonation?: () => void;
+  // First-time teaching spotlight — lights up the chip with a halo + raises
+  // a coachmark pointing at it so the user learns where to exit the acting-
+  // as mode. One-shot per session; auto-dismisses after 8s.
+  impersonationSpotlight?: boolean;
+  onDismissImpersonationSpotlight?: () => void;
 }
 
 type NotifType = "team-setup" | "maintenance";
@@ -202,7 +213,7 @@ function NotifRow({
   );
 }
 
-export default function TopBar({ isDark = false, activePage, teamSetupBellVisible = true, teamSetupBellSpotlight = false, onOpenTeamSetup, onDismissTeamSetupBell }: TopBarProps) {
+export default function TopBar({ isDark = false, activePage, teamSetupBellVisible = true, teamSetupBellSpotlight = false, onOpenTeamSetup, onDismissTeamSetupBell, impersonation = null, onExitImpersonation, impersonationSpotlight = false, onDismissImpersonationSpotlight }: TopBarProps) {
   const hideSearch = activePage === "Quotes" || activePage === "Policies";
   const [open, setOpen] = useState(false);
   // `notifs` stays stable — dismissing an item adds its id to `dismissedIds`
@@ -299,6 +310,167 @@ export default function TopBar({ isDark = false, activePage, teamSetupBellVisibl
       )}
 
       <div className="flex-1" />
+
+      {/* Acting-as chip — outlined, no fill, inline alongside the bell. Shows
+          whenever an internal user kicked off a "Start a Quote" impersonation
+          from Agencies, so every page in the chrome reminds them whose
+          account the next quote will post under. Click the inline X to exit.
+          First-ever activation also raises a dim/blur backdrop + coachmark
+          pointing at the chip (impersonationSpotlight), teaching the user
+          where the Exit lives. */}
+      {impersonation && impersonationSpotlight && (
+        <div
+          className="fixed inset-0"
+          onClick={() => onDismissImpersonationSpotlight?.()}
+          aria-label="Dismiss tip"
+          role="button"
+          tabIndex={-1}
+          style={{
+            background: "rgba(0,0,0,0.35)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
+            zIndex: 40,
+            cursor: "default",
+            animation: "impersonationSpotlightIn 220ms ease-out",
+          }}
+        />
+      )}
+      {impersonation && (
+        <div
+          className="relative flex items-center gap-2 flex-shrink-0"
+          role="status"
+          aria-live="polite"
+          style={{
+            height: 28,
+            padding: "0 6px 0 10px",
+            borderRadius: 999,
+            border: `1px solid ${impersonationSpotlight
+              ? (isDark ? "#C084FC" : RAZZ)
+              : (isDark ? "rgba(192,132,252,0.45)" : "rgba(166,20,195,0.40)")}`,
+            background: impersonationSpotlight ? (isDark ? "#0F1120" : "#FFFFFF") : "transparent",
+            fontFamily: FONT,
+            maxWidth: 320,
+            zIndex: impersonationSpotlight ? 42 : undefined,
+            boxShadow: impersonationSpotlight
+              ? `0 0 0 6px ${isDark ? "rgba(192,132,252,0.22)" : "rgba(166,20,195,0.18)"}, 0 12px 32px rgba(0,0,0,0.14)`
+              : undefined,
+            transition: "box-shadow 220ms ease-out",
+          }}
+          title={`Acting as ${impersonation.userName} on ${impersonation.agencyName}. Quotes you start post under this user.`}
+        >
+          <span
+            className="inline-block rounded-full flex-shrink-0"
+            aria-hidden="true"
+            style={{
+              width: 6,
+              height: 6,
+              background: RAZZ,
+              boxShadow: `0 0 0 3px ${isDark ? "rgba(192,132,252,0.18)" : "rgba(166,20,195,0.15)"}`,
+            }}
+          />
+          <span
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ letterSpacing: "0.08em", color: isDark ? "#C084FC" : RAZZ_DEEP }}
+          >
+            Acting as
+          </span>
+          <span
+            className="text-[12px] font-semibold truncate"
+            style={{ color: isDark ? "#F9FAFB" : "#2D3653", maxWidth: 160 }}
+          >
+            {impersonation.userName}
+          </span>
+          <button
+            type="button"
+            onClick={() => onExitImpersonation?.()}
+            className="flex items-center justify-center transition-colors flex-shrink-0"
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 999,
+              background: "transparent",
+              border: "none",
+              color: isDark ? "#C084FC" : RAZZ,
+              cursor: "pointer",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = isDark ? "rgba(192,132,252,0.14)" : "rgba(166,20,195,0.10)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            aria-label={`Exit — stop acting as ${impersonation.userName}`}
+          >
+            <X className="w-3 h-3" strokeWidth={2.4} />
+          </button>
+          {impersonationSpotlight && (
+            <>
+              <div
+                onClick={e => e.stopPropagation()}
+                className="absolute rounded-xl p-3.5 flex items-start gap-3"
+                style={{
+                  top: "calc(100% + 10px)",
+                  right: 0,
+                  width: 300,
+                  background: isDark ? "#1E2240" : "#FFFFFF",
+                  border: `1px solid ${isDark ? "rgba(192,132,252,0.35)" : "rgba(166,20,195,0.28)"}`,
+                  boxShadow: "0 20px 48px rgba(0,0,0,0.18)",
+                  zIndex: 43,
+                  animation: "impersonationCoachmarkIn 220ms ease-out",
+                }}
+                role="dialog"
+                aria-label="Acting-as tip"
+              >
+                {/* Pointer arrow at the top-right */}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    top: -6,
+                    right: 18,
+                    width: 10,
+                    height: 10,
+                    background: isDark ? "#1E2240" : "#FFFFFF",
+                    borderTop: `1px solid ${isDark ? "rgba(192,132,252,0.35)" : "rgba(166,20,195,0.28)"}`,
+                    borderLeft: `1px solid ${isDark ? "rgba(192,132,252,0.35)" : "rgba(166,20,195,0.28)"}`,
+                    transform: "rotate(45deg)",
+                  }}
+                />
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, rgba(92,46,212,0.14), rgba(166,20,195,0.14))" }}
+                >
+                  <Users className="w-4 h-4" style={{ color: isDark ? "#C084FC" : RAZZ }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] font-semibold mb-0.5" style={{ fontFamily: FONT, color: isDark ? "#F9FAFB" : "#2D3653" }}>
+                    You're acting as {impersonation.userName}
+                  </div>
+                  <div className="text-[11px] leading-relaxed" style={{ fontFamily: FONT, color: isDark ? "#D1D5DB" : "#6B7280" }}>
+                    Quotes you start post under this user. Click <strong style={{ color: isDark ? "#C084FC" : RAZZ, fontWeight: 700 }}>×</strong> on this badge any time to switch back to yourself.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onDismissImpersonationSpotlight?.()}
+                    className="mt-2 text-[11px] font-semibold transition-opacity"
+                    style={{ color: isDark ? "#C084FC" : RAZZ, background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = "0.75")}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+              <style>{`
+                @keyframes impersonationSpotlightIn {
+                  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+                  to   { opacity: 1; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+                }
+                @keyframes impersonationCoachmarkIn {
+                  from { opacity: 0; transform: translateY(-6px); }
+                  to   { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Notification bell + its popover — wrapped in a `relative` so the
           panel can anchor to the bell's own right edge (right: 0), keeping

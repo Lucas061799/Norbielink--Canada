@@ -743,7 +743,7 @@ const StatusPill = ({ status, isDark }: { status: string; isDark: boolean }) => 
   </span>
 );
 
-function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleStar, inactiveUserIds, setInactiveUserIds, statusInactiveUserIds, setStatusInactiveUserIds, removedUserIds, setRemovedUserIds, bookRolled, setBookRolled, allAgencies, initialTab, onNavigateToAgency, viewMode = "internal", itcRecords, setItcRecords, isSuperAdmin = true, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup }: {
+function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleStar, inactiveUserIds, setInactiveUserIds, statusInactiveUserIds, setStatusInactiveUserIds, removedUserIds, setRemovedUserIds, bookRolled, setBookRolled, allAgencies, initialTab, onNavigateToAgency, viewMode = "internal", itcRecords, setItcRecords, isSuperAdmin = true, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup, onStartImpersonation }: {
   agency: AgencyDetail;
   isDark: boolean;
   onBack: () => void;
@@ -802,6 +802,10 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
   // jump back to the one-shot "set everyone at once" flow without hunting
   // for a trigger.
   onOpenTeamSetup?: () => void;
+  // Internal-staff impersonation entry — the per-user "Start a Quote" action
+  // calls this with the chosen user's identity, and the shell flips into
+  // acting-as mode (banner + routes back to Marketplace).
+  onStartImpersonation?: (payload: { userName: string; userEmail: string; agencyName: string; agencyCode: string }) => void;
 }) {
   // Mock role toggle for the Admin (client) section. In production internal & client are
   // separate deployments and this flag would come from auth; here we let the demo user
@@ -1907,6 +1911,11 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
   const [userToast,       setUserToast]       = useState<ToastData | null>(null);
   const showToast = (t: ToastData, ms = 4000) => { setUserToast(t); setTimeout(() => setUserToast(null), ms); };
   const [removeUserConfirm, setRemoveUserConfirm] = useState<{id: string; name: string} | null>(null);
+  // Internal-staff "Start a Quote" impersonation confirm. Shows a modal before
+  // routing to Quotes so the staff member sees exactly whose account they're
+  // about to act as — this is a surrogate action, so making the identity
+  // switch obvious up-front prevents mis-posted quotes under the wrong user.
+  const [startQuoteAs, setStartQuoteAs] = useState<{id: string; name: string; email: string} | null>(null);
   const [deactivateUserConfirm, setDeactivateUserConfirm] = useState<{id: string; name: string} | null>(null);
   // When deactivating/removing a Principal or Agency Contact, force the user to pick a replacement first.
   const [roleReassign, setRoleReassign] = useState<{
@@ -3170,6 +3179,61 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+      {startQuoteAs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          onClick={() => setStartQuoteAs(null)}
+          style={{ background: "rgba(0,0,0,0.45)" }}>
+          <div className="w-[460px] rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}
+            style={{ background: c.cardBg, border: `1px solid ${c.border}`, fontFamily: FONT }}>
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, rgba(92,46,212,0.14), rgba(166,20,195,0.14))" }}>
+                <QuoteIcon className="w-6 h-6" style={{ color: "#A614C3" }} strokeWidth={1.8} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[16px] font-bold mb-1.5" style={{ color: c.text }}>Start a quote as this user?</h3>
+                <p className="text-[12px] leading-relaxed" style={{ color: c.muted }}>
+                  You'll start a quote as{" "}
+                  <strong style={{ color: c.text, fontWeight: 700 }}>{startQuoteAs.name}</strong>
+                  {" "}on <strong style={{ color: c.text, fontWeight: 700 }}>{agency.name}</strong>. An "Acting as" badge stays in the top bar — click it to switch back any time.
+                </p>
+                <div className="mt-3 rounded-lg px-3 py-2 text-[12px] flex items-center gap-2"
+                  style={{ background: isDark ? "rgba(166,20,195,0.10)" : "#F9F4FC", color: c.text }}>
+                  <UserCircle className="w-4 h-4" style={{ color: "#A614C3" }} />
+                  <span style={{ fontWeight: 600 }}>{startQuoteAs.name}</span>
+                  <span style={{ color: c.muted }}>·</span>
+                  <span style={{ color: c.muted }} className="truncate">{startQuoteAs.email}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setStartQuoteAs(null)}
+                className="px-4 py-2 rounded-lg text-[12px] font-medium transition-all"
+                style={{ border: `1px solid ${c.borderStrong}`, color: c.text, background: "transparent" }}
+                onMouseEnter={e => (e.currentTarget.style.background = c.hoverBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                Cancel
+              </button>
+              <button onClick={() => {
+                  const payload = {
+                    userName: startQuoteAs.name,
+                    userEmail: startQuoteAs.email,
+                    agencyName: agency.name,
+                    agencyCode: agency.code,
+                  };
+                  setStartQuoteAs(null);
+                  onStartImpersonation?.(payload);
+                }}
+                className="px-4 py-2 rounded-lg text-[12px] font-semibold text-white transition-opacity"
+                style={{ background: "linear-gradient(88.54deg, #5C2ED4 0.1%, #A614C3 63.88%)" }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.92")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
+                Start Quote
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -8483,7 +8547,12 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                         {userMenuId === u.id && userMenuPos && (() => {
                           const isInactive = inactiveUserIds.has(u.id);
                           const isLocked = lockedUserIds.has(u.id);
-                          const base = isInactive ? [] : ["Edit User", "Reset Password", "Reassign Accounts"];
+                          // "Start a Quote" is an internal-staff shortcut: lets BTIS users
+                          // open the Quotes flow acting as this external user, instead of
+                          // having to log out and sign back in under their account.
+                          // Only shown in internal view and only for active users.
+                          const impersonate = viewMode === "internal" && !isInactive ? ["Start a Quote"] : [];
+                          const base = isInactive ? [] : [...impersonate, "Edit User", "Reset Password", "Reassign Accounts"];
                           // Unlock User and Deactivate User both go to the bottom of the menu
                           // because they're rarer / heavier-weight actions. Unlock specifically
                           // is most often disabled (only meaningful when the account is locked),
@@ -8503,14 +8572,17 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                                 disabled={isUnlockDisabled}
                                 title={isUnlockDisabled ? "Account is currently active — nothing to unlock." : undefined}
                                 style={{ fontFamily:FONT,
-                                  color: isUnlockDisabled ? c.muted : action==="Remove"?"#EF4444":action==="Reactivate"?"#73C9B7":c.text,
+                                  color: isUnlockDisabled ? c.muted : action==="Remove"?"#EF4444":action==="Reactivate"?"#73C9B7":action==="Start a Quote"?"#A614C3":c.text,
+                                  fontWeight: action === "Start a Quote" ? 600 : undefined,
                                   cursor: isUnlockDisabled ? "not-allowed" : "pointer",
                                   opacity: isUnlockDisabled ? 0.55 : 1 }}
                                 onMouseEnter={e=>{ if (!isUnlockDisabled) e.currentTarget.style.background=c.hoverBg; }}
                                 onMouseLeave={e=>(e.currentTarget.style.background="transparent")}
                                 onClick={() => {
                                   if (isUnlockDisabled) return;
-                                  if (action === "Edit User") {
+                                  if (action === "Start a Quote") {
+                                    setStartQuoteAs({ id: u.id, name: u.name, email: u.email });
+                                  } else if (action === "Edit User") {
                                     const parts = u.name.trim().split(/\s+/);
                                     setAuFirstName(parts[0] || "");
                                     setAuLastName(parts.slice(1).join(" "));
@@ -11094,7 +11166,7 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
 }
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
-export default function Agencies({ isDark, clientMode = false, initialTab, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup }: { isDark: boolean; clientMode?: boolean; initialTab?: DetailTab; pageTitleOverride?: string; spotlightUsers?: boolean; onSpotlightConsumed?: () => void; spotlightActive?: boolean; onSpotlightDismiss?: () => void; teamSetupPending?: boolean; onOpenTeamSetup?: () => void }) {
+export default function Agencies({ isDark, clientMode = false, initialTab, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup, onStartImpersonation }: { isDark: boolean; clientMode?: boolean; initialTab?: DetailTab; pageTitleOverride?: string; spotlightUsers?: boolean; onSpotlightConsumed?: () => void; spotlightActive?: boolean; onSpotlightDismiss?: () => void; teamSetupPending?: boolean; onOpenTeamSetup?: () => void; onStartImpersonation?: (payload: { userName: string; userEmail: string; agencyName: string; agencyCode: string }) => void }) {
   const [search, setSearch]           = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   // Per-tab card-selection state — used to visually pin the active stat card
@@ -11786,6 +11858,7 @@ export default function Agencies({ isDark, clientMode = false, initialTab, pageT
           setSelectedAgency(getDetail(target));
           setSelectedAgencyTab(tab);
         }}
+        onStartImpersonation={onStartImpersonation}
       />
     );
   }

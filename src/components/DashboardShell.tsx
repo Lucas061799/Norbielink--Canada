@@ -66,11 +66,31 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
   // repeat spotlight.
   const [teamSetupSpotlightFired, setTeamSetupSpotlightFired] = useState(false);
 
+  // Internal-staff impersonation: BTIS user starts a quote AS an external
+  // user. Set from the Agencies "Start a Quote" action; cleared by the
+  // persistent Exit affordance on the TopBar chip. While it's set, every page
+  // in the shell shows the acting-as chip so the staff member can't forget
+  // whose account they're posting under.
+  const [impersonation, setImpersonation] = useState<{ userName: string; userEmail: string; agencyName: string; agencyCode: string } | null>(null);
+  // Transient spotlight: when impersonation first starts, highlight the
+  // TopBar chip (halo + coachmark pointing at it) so the user sees exactly
+  // where to exit back to their own identity. Auto-dismisses after 8s, or on
+  // any click. One-shot per session (teamSetupSpotlightFired-style gate) so
+  // repeat Start-a-Quote invocations don't keep re-teaching the same thing.
+  const [impersonationSpotlightActive, setImpersonationSpotlightActive] = useState(false);
+  const [impersonationSpotlightFired, setImpersonationSpotlightFired] = useState(false);
+
   useEffect(() => {
     if (!teamSetupSpotlightActive) return;
     const t = setTimeout(() => setTeamSetupSpotlightActive(false), 8000);
     return () => clearTimeout(t);
   }, [teamSetupSpotlightActive]);
+
+  useEffect(() => {
+    if (!impersonationSpotlightActive) return;
+    const t = setTimeout(() => setImpersonationSpotlightActive(false), 8000);
+    return () => clearTimeout(t);
+  }, [impersonationSpotlightActive]);
 
   const modalOpen   = !teamSetupDone && !teamSetupModalDismissed;
   const bannerVisible = !teamSetupDone && teamSetupModalDismissed && !teamSetupBannerDismissed;
@@ -127,7 +147,24 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
         // which leaks state (bookRolled, inactiveUserIds, etc.) from one
         // perspective to the other (internal staff mutations would show up in
         // the agency's own client portal).
-        return <Agencies key="agencies-internal" isDark={darkMode} />;
+        return (
+          <Agencies
+            key="agencies-internal"
+            isDark={darkMode}
+            onStartImpersonation={(p) => {
+              setImpersonation(p);
+              setActivePage("Marketplace");
+              // First-ever Start-a-Quote in this session also fires a one-shot
+              // teaching spotlight over the TopBar chip so the user learns
+              // where to exit back to themselves. Subsequent impersonations
+              // skip the spotlight — they already know.
+              if (!impersonationSpotlightFired) {
+                setImpersonationSpotlightActive(true);
+                setImpersonationSpotlightFired(true);
+              }
+            }}
+          />
+        );
       case "Admin":
         // External-client view: same Agency detail surface, scoped to the user's
         // own (mock) agency. Distinct `key` from the Agencies case — see above.
@@ -194,6 +231,10 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
           teamSetupBellSpotlight={teamSetupSpotlightActive}
           onOpenTeamSetup={openTeamSetup}
           onDismissTeamSetupBell={() => setTeamSetupBellDismissed(true)}
+          impersonation={impersonation}
+          impersonationSpotlight={impersonationSpotlightActive}
+          onDismissImpersonationSpotlight={() => setImpersonationSpotlightActive(false)}
+          onExitImpersonation={() => setImpersonation(null)}
         />
         <main
           className="flex-1 overflow-hidden transition-colors duration-300 px-12"
