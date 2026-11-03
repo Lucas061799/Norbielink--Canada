@@ -54,7 +54,7 @@ const INITIAL_NOTIFS: Notification[] = [
     id: "team-setup",
     type: "team-setup",
     title: "Finish setting up your team",
-    body: "Nobody is set as Admin for Acme Insurance Agency yet. Pick who manages the agency.",
+    body: "You're the only Admin for Acme Insurance Agency. Choose who else should be an Admin and confirm Job Titles.",
     timestamp: "Just now",
     actionLabel: "Set up team",
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Sidenav from "@/components/Sidenav";
 import TopBar from "@/components/TopBar";
 import Clients from "@/components/Clients";
@@ -14,6 +14,18 @@ import Pricing from "@/components/Pricing";
 import TeamSetupModal from "@/components/TeamSetupModal";
 import TeamSetupDismissToast from "@/components/TeamSetupDismissToast";
 
+const TEAM_SETUP_DONE_KEY = "norbielink.teamSetupDone";
+
+function readTeamSetupDone(): boolean {
+  try {
+    if (new URLSearchParams(window.location.search).get("teamSetup") === "reset") return false;
+    return localStorage.getItem(TEAM_SETUP_DONE_KEY) === "1";
+  } catch {
+    return false; // storage blocked — fall back to prompting this session
+  }
+}
+const noopSubscribe = () => () => {};
+
 interface DashboardShellProps {
   children: React.ReactNode;
   pageTitle?: string;
@@ -23,8 +35,8 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
   const [darkMode, setDarkMode] = useState(false);
   const [activePage, setActivePage] = useState("Marketplace");
 
-  // Team Setup prompt state — the mock agency has no admin assigned, so on
-  // first sign-in the modal pops. Three independent dismissal flags because
+  // Team Setup prompt state — the mock agency's only admin is the signed-in
+  // primary contact, so on first sign-in the modal pops. Three independent dismissal flags because
   // each surface (modal / banner / bell entry) can be dismissed on its own:
   //   - teamSetupDone: user actually saved admins → prompt is gone everywhere
   //   - teamSetupModalDismissed: user X'd or "Remind me later"'d the modal →
@@ -36,6 +48,17 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
   // Clicking "Set up team" from the banner or bell re-opens the modal without
   // flipping any of the dismissed flags, so the recovery path is reversible.
   const [teamSetupDone, setTeamSetupDone] = useState(false);
+  // "Done" is sticky: once the primary contact finishes setup we never prompt
+  // again. Persisted to localStorage as a stand-in for a server-side agency
+  // flag. The server snapshot is null ("not loaded yet"), which holds every
+  // surface back until the client has read it — so a finished user never
+  // sees the modal flash on load. `?teamSetup=reset` clears it for demos.
+  const storedTeamSetupDone = useSyncExternalStore(noopSubscribe, readTeamSetupDone, () => null);
+  const teamSetupLoaded = storedTeamSetupDone !== null;
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("teamSetup") !== "reset") return;
+    try { localStorage.removeItem(TEAM_SETUP_DONE_KEY); } catch { /* nothing stored */ }
+  }, []);
   const [teamSetupModalDismissed, setTeamSetupModalDismissed] = useState(false);
   const [teamSetupBannerDismissed, setTeamSetupBannerDismissed] = useState(false);
   const [teamSetupBellDismissed, setTeamSetupBellDismissed] = useState(false);
@@ -92,9 +115,20 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
     return () => clearTimeout(t);
   }, [impersonationSpotlightActive]);
 
-  const modalOpen   = !teamSetupDone && !teamSetupModalDismissed;
-  const bannerVisible = !teamSetupDone && teamSetupModalDismissed && !teamSetupBannerDismissed;
-  const bellEntryVisible = !teamSetupDone && !teamSetupBellDismissed;
+  const teamSetupPending = teamSetupLoaded && !teamSetupDone && !storedTeamSetupDone;
+  const modalOpen   = teamSetupPending && !teamSetupModalDismissed;
+  const bannerVisible = teamSetupPending && teamSetupModalDismissed && !teamSetupBannerDismissed;
+  const bellEntryVisible = teamSetupPending && !teamSetupBellDismissed;
+
+  // Single exit for every "I'm done" path (modal Save, Users-tab coachmark).
+  // Clears all surfaces at once — modal, banner, bell, toast, coachmark,
+  // spotlight — and remembers it so no surface comes back on reload.
+  const completeTeamSetup = () => {
+    setTeamSetupDone(true);
+    setTeamSetupDismissHintOpen(false);
+    setTeamSetupSpotlightActive(false);
+    try { localStorage.setItem(TEAM_SETUP_DONE_KEY, "1"); } catch { /* session-only */ }
+  };
 
   const openTeamSetup = () => {
     setTeamSetupModalDismissed(false);
@@ -183,8 +217,9 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
             onSpotlightConsumed={() => setTeamSetupSpotlightUsers(false)}
             spotlightActive={teamSetupSpotlightActive}
             onSpotlightDismiss={() => setTeamSetupSpotlightActive(false)}
-            teamSetupPending={!teamSetupDone}
+            teamSetupPending={teamSetupPending}
             onOpenTeamSetup={openTeamSetup}
+            onCompleteTeamSetup={completeTeamSetup}
           />
         );
       case "Accounting · Statements":
@@ -251,7 +286,7 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
         open={modalOpen}
         onClose={dismissTeamSetupModal}
         onRemindLater={dismissTeamSetupModal}
-        onSave={() => { setTeamSetupDone(true); setTeamSetupDismissHintOpen(false); }}
+        onSave={completeTeamSetup}
       />
 
       {/* Dismiss-hint toast — pops after the modal is X'd / "Remind me later"'d
@@ -259,7 +294,7 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
           Mounted at shell level because the modal unmounts on dismiss. */}
       <TeamSetupDismissToast
         isDark={darkMode}
-        open={teamSetupDismissHintOpen && !teamSetupDone}
+        open={teamSetupDismissHintOpen && teamSetupPending}
         onClose={() => setTeamSetupDismissHintOpen(false)}
         onOpenTeamSetup={openTeamSetup}
       />

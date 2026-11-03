@@ -743,7 +743,7 @@ const StatusPill = ({ status, isDark }: { status: string; isDark: boolean }) => 
   </span>
 );
 
-function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleStar, inactiveUserIds, setInactiveUserIds, statusInactiveUserIds, setStatusInactiveUserIds, removedUserIds, setRemovedUserIds, bookRolled, setBookRolled, allAgencies, initialTab, onNavigateToAgency, viewMode = "internal", itcRecords, setItcRecords, isSuperAdmin = true, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup, onStartImpersonation }: {
+function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleStar, inactiveUserIds, setInactiveUserIds, statusInactiveUserIds, setStatusInactiveUserIds, removedUserIds, setRemovedUserIds, bookRolled, setBookRolled, allAgencies, initialTab, onNavigateToAgency, viewMode = "internal", itcRecords, setItcRecords, isSuperAdmin = true, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup, onCompleteTeamSetup, onStartImpersonation }: {
   agency: AgencyDetail;
   isDark: boolean;
   onBack: () => void;
@@ -802,6 +802,10 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
   // jump back to the one-shot "set everyone at once" flow without hunting
   // for a trigger.
   onOpenTeamSetup?: () => void;
+  // Optional: when supplied, the coachmark also offers "Done setting up" so
+  // a user who assigned admins right here in the Users tab can end the
+  // prompt everywhere (modal, banner, bell, coachmark) for good.
+  onCompleteTeamSetup?: () => void;
   // Internal-staff impersonation entry — the per-user "Start a Quote" action
   // calls this with the chosen user's identity, and the shell flips into
   // acting-as mode (banner + routes back to Marketplace).
@@ -8086,21 +8090,38 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                     Click the <span style={{ fontWeight: 600, color: c.text }}>Admin</span> icon in any row to grant or revoke admin. For <span style={{ fontWeight: 600, color: c.text }}>Job Title</span> changes, use the <span style={{ fontWeight: 600, color: c.text }}>⋮</span> menu → Edit User, or reopen the bulk setup.
                   </div>
                 </div>
-                {onOpenTeamSetup && (
-                  <button
-                    type="button"
-                    onClick={() => { onOpenTeamSetup(); dismissSpotlight(); }}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white whitespace-nowrap transition-all cursor-pointer self-start"
-                    style={{
-                      ...font,
-                      background: "linear-gradient(90deg, #5C2ED4 0%, #A614C3 65%)",
-                      border: "none",
-                      marginTop: 0,
-                    }}
-                  >
-                    Open bulk setup
-                  </button>
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0 self-start">
+                  {onCompleteTeamSetup && (
+                    <button
+                      type="button"
+                      onClick={() => { onCompleteTeamSetup(); dismissSpotlight(); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-all cursor-pointer"
+                      style={{
+                        ...font,
+                        background: "transparent",
+                        border: `1px solid ${c.border}`,
+                        color: c.text,
+                      }}
+                    >
+                      Done setting up
+                    </button>
+                  )}
+                  {onOpenTeamSetup && (
+                    <button
+                      type="button"
+                      onClick={() => { onOpenTeamSetup(); dismissSpotlight(); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white whitespace-nowrap transition-all cursor-pointer"
+                      style={{
+                        ...font,
+                        background: "linear-gradient(90deg, #5C2ED4 0%, #A614C3 65%)",
+                        border: "none",
+                        marginTop: 0,
+                      }}
+                    >
+                      Open bulk setup
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             {/* Legacy BTIS auto-detect banner — shown when there are new
@@ -11166,7 +11187,7 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
 }
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
-export default function Agencies({ isDark, clientMode = false, initialTab, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup, onStartImpersonation }: { isDark: boolean; clientMode?: boolean; initialTab?: DetailTab; pageTitleOverride?: string; spotlightUsers?: boolean; onSpotlightConsumed?: () => void; spotlightActive?: boolean; onSpotlightDismiss?: () => void; teamSetupPending?: boolean; onOpenTeamSetup?: () => void; onStartImpersonation?: (payload: { userName: string; userEmail: string; agencyName: string; agencyCode: string }) => void }) {
+export default function Agencies({ isDark, clientMode = false, initialTab, pageTitleOverride, spotlightUsers = false, onSpotlightConsumed, spotlightActive = false, onSpotlightDismiss, teamSetupPending = false, onOpenTeamSetup, onCompleteTeamSetup, onStartImpersonation }: { isDark: boolean; clientMode?: boolean; initialTab?: DetailTab; pageTitleOverride?: string; spotlightUsers?: boolean; onSpotlightConsumed?: () => void; spotlightActive?: boolean; onSpotlightDismiss?: () => void; teamSetupPending?: boolean; onOpenTeamSetup?: () => void; onCompleteTeamSetup?: () => void; onStartImpersonation?: (payload: { userName: string; userEmail: string; agencyName: string; agencyCode: string }) => void }) {
   const [search, setSearch]           = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   // Per-tab card-selection state — used to visually pin the active stat card
@@ -11826,6 +11847,7 @@ export default function Agencies({ isDark, clientMode = false, initialTab, pageT
         onSpotlightDismiss={onSpotlightDismiss}
         teamSetupPending={teamSetupPending}
         onOpenTeamSetup={onOpenTeamSetup}
+        onCompleteTeamSetup={onCompleteTeamSetup}
       />
     );
   }

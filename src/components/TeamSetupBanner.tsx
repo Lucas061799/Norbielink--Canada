@@ -77,7 +77,7 @@ export default function TeamSetupBanner({ isDark, onOpen, onDismiss }: TeamSetup
           Finish setting up your team
         </div>
         <div className="text-[12px] mt-0.5" style={{ fontFamily: FONT, color: bodyColor }}>
-          Nobody is set as Admin for this agency yet. Pick who manages Acme Insurance Agency so they can invite users and manage the policy book.
+          You&apos;re the only Admin for Acme Insurance Agency. Choose who else should be an Admin — Admins can view accounting statements and add, edit, or delete users.
         </div>
       </div>
 
