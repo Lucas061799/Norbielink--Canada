@@ -408,7 +408,7 @@ export default function TeamSetupModal({ isDark, open, onClose, onRemindLater, o
             >
               {/* Same label at any admin count — being the only Admin is a
                   valid finish, and the footer already shows the count. */}
-              Done
+              Save
             </button>
           </div>
         </div>
