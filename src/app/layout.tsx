@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Montserrat } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +13,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const montserrat = Montserrat({
+// Montserrat is loaded locally rather than via next/font/google: the Google
+// loader breaks the Turbopack production build on Vercel ("next/font/google
+// queries have exactly one entry" for the @vercel/turbopack-next internal
+// font module). This is the latin variable font file from Google Fonts
+// (v31), which covers the full 400–700 weight range we use — same glyphs,
+// same look, no build-time network fetch.
+const montserrat = localFont({
+  src: "./fonts/montserrat-latin.woff2",
   variable: "--font-montserrat",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
