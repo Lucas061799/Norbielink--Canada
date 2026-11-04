@@ -554,8 +554,22 @@ function LoginView({ c, font, inputStyle, labelStyle, primaryBtnStyle, btnGrad, 
   const [remember, setRemember] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  // Mismatch hint: shown when a sign-in attempt fails. There's no backend in
+  // this prototype, so any entered credentials count as "no match" — enough to
+  // surface the error state. An empty form still takes the demo quick-enter
+  // path below, so clicking Continue with nothing typed goes straight in.
+  const [mismatch, setMismatch] = useState(false);
   // Demo: always allow Continue. Production would require identifier + password.
   const enabled = true;
+
+  const handleContinue = () => {
+    if (identifier.trim() === "" && password === "") {
+      setMismatch(false);
+      onContinue();
+      return;
+    }
+    setMismatch(true);
+  };
 
   return (
     <>
@@ -579,7 +593,7 @@ function LoginView({ c, font, inputStyle, labelStyle, primaryBtnStyle, btnGrad, 
 
       <div className="mb-5">
         <label style={labelStyle}>User ID</label>
-        <input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)}
+        <input type="text" value={identifier} onChange={e => { setIdentifier(e.target.value); setMismatch(false); }}
           onBlur={() => {
             // Detect on blur (when the user leaves the field) rather than every keystroke —
             // avoids firing the toast while they're still typing their actual identifier.
@@ -599,7 +613,7 @@ function LoginView({ c, font, inputStyle, labelStyle, primaryBtnStyle, btnGrad, 
           <input
             type={showPw ? "text" : "password"}
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={e => { setPassword(e.target.value); setMismatch(false); }}
             style={{ ...inputStyle, paddingRight: 40 }}
           />
           <button
@@ -635,7 +649,17 @@ function LoginView({ c, font, inputStyle, labelStyle, primaryBtnStyle, btnGrad, 
         Remember me for 30 days
       </label>
 
-      <button type="button" disabled={!enabled} onClick={onContinue} style={primaryBtnStyle(enabled)}>
+      {mismatch && (
+        <p
+          role="alert"
+          className="mb-4 -mt-3"
+          style={{ ...font, fontSize: 13, fontWeight: 600, color: isDark ? "#F87171" : "#DC2626", lineHeight: 1.5 }}
+        >
+          Your User ID or password doesn&apos;t match our records.
+        </p>
+      )}
+
+      <button type="button" disabled={!enabled} onClick={handleContinue} style={primaryBtnStyle(enabled)}>
         Continue
       </button>
 
