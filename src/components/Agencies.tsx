@@ -8163,7 +8163,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                     We found {legacyRosterTagged.length} users in your legacy BTIS account
                   </div>
                   <div className="text-[12px] mt-0.5" style={{ ...font, color: c.muted }}>
-                    {legacyNewCount} haven&apos;t been added to NorbieLink yet
+                    {legacyNewCount}{" "}haven&apos;t been added to NorbieLink yet
                     {legacyDupCount > 0 ? ` (${legacyDupCount} already exist here)` : ""}. Import them in one click instead of re-entering by hand.
                   </div>
                 </div>
