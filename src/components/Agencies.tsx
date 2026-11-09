@@ -1561,9 +1561,9 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
         issues.push({ rowIndex: idx, severity: "error", field: "admin", message: `Row ${sheetRow}: "${u.admin}" isn't a valid Admin value — use Yes or No.` });
       }
       if (!u.jobTitle.trim()) {
-        issues.push({ rowIndex: idx, severity: "error", field: "jobTitle", message: `Row ${sheetRow}: missing Job Title.` });
+        issues.push({ rowIndex: idx, severity: "error", field: "jobTitle", message: `Row ${sheetRow}: missing job title.` });
       } else if (!JOB_TITLES.includes(u.jobTitle.trim())) {
-        issues.push({ rowIndex: idx, severity: "error", field: "jobTitle", message: `Row ${sheetRow}: "${u.jobTitle}" isn't a valid Job Title.` });
+        issues.push({ rowIndex: idx, severity: "error", field: "jobTitle", message: `Row ${sheetRow}: "${u.jobTitle}" isn't a valid job title.` });
       }
       // Phone now required (per the schema decision). Address is optional → no validation.
       if (!u.phone.trim()) {
@@ -2073,7 +2073,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
       { header: "First Name", key: "firstName", width: 16 },
       { header: "Last Name",  key: "lastName",  width: 16 },
       { header: "Admin",      key: "admin",     width: 10 },
-      { header: "Job Title",  key: "jobTitle",  width: 18 },
+      { header: "Job title",  key: "jobTitle",  width: 18 },
       { header: "Email",      key: "email",     width: 28 },
       { header: "Phone",      key: "phone",     width: 16 },
       { header: "Ext",        key: "ext",       width: 8  },
@@ -8087,7 +8087,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                     Assign admins & titles here
                   </div>
                   <div className="text-[12px] mt-0.5" style={{ ...font, color: c.muted }}>
-                    Click the <span style={{ fontWeight: 600, color: c.text }}>Admin</span> icon in any row to grant or revoke admin. For <span style={{ fontWeight: 600, color: c.text }}>Job Title</span> changes, use the <span style={{ fontWeight: 600, color: c.text }}>⋮</span> menu → Edit User, or reopen the bulk setup.
+                    Click the <span style={{ fontWeight: 600, color: c.text }}>Admin</span> icon in any row to grant or revoke admin. For <span style={{ fontWeight: 600, color: c.text }}>Job title</span> changes, use the <span style={{ fontWeight: 600, color: c.text }}>⋮</span> menu → Edit User, or reopen the bulk setup.
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 self-start">
@@ -8258,7 +8258,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                 {(() => {
                   const cols: { label: string; get: (u: typeof agencyUsers[number]) => string }[] = [
                     { label: "Name",      get: u => u.name },
-                    { label: "Job Title", get: u => u.jobTitle },
+                    { label: "Job title", get: u => u.jobTitle },
                     { label: "Email",     get: u => u.email },
                     { label: "Phone",     get: u => u.phone || "" },
                     { label: "Ext",       get: u => u.ext || "" },
@@ -8802,7 +8802,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                 {/* Row: Job Title + Status */}
                 <div className="flex gap-3">
                   <div className="flex-1 relative">
-                    <label className="block text-[13px] font-medium mb-1.5" style={labelStyle}>Job Title</label>
+                    <label className="block text-[13px] font-medium mb-1.5" style={labelStyle}>Job title</label>
                     <DropTrigger label={auJobTitle} open={auJobOpen} onClick={()=>{ setAuJobOpen(!auJobOpen); setAuStatusOpen(false); setAuStateOpen(false); }} />
                     {auJobOpen && <DropList items={JOB_TITLES} selected={auJobTitle} onSelect={v=>{setAuJobTitle(v);setAuJobOpen(false);}} disabledReasons={jobTitleDisabled} />}
                   </div>
@@ -9553,7 +9553,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                   <table className="text-[11px]" style={{ fontFamily:FONT, borderCollapse:"separate", borderSpacing:0, width:"100%" }}>
                     <thead>
                       <tr style={{ background:isDark?"rgba(255,255,255,0.04)":"#FAFAFB" }}>
-                        {["First Name","Last Name","Admin","Job Title","Email","Phone","Ext","Address"].map((h, i) => (
+                        {["First Name","Last Name","Admin","Job title","Email","Phone","Ext","Address"].map((h, i) => (
                           <th key={h} className="text-left px-3 py-2 font-semibold whitespace-nowrap" style={{ color:c.muted, borderBottom:`1px solid ${c.border}`, borderRight: i < 7 ? `1px solid ${c.border}` : "none" }}>
                             {h}
                           </th>
@@ -9584,7 +9584,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                     <span className="font-mono" style={{ color:"#A614C3" }}>Yes / No</span>
                   </div>
                   <div className="flex items-baseline gap-2 text-[11px]" style={{ fontFamily:FONT }}>
-                    <span className="flex-shrink-0 w-[60px]" style={{ color:c.muted }}>Job Title</span>
+                    <span className="flex-shrink-0 w-[60px]" style={{ color:c.muted }}>Job title</span>
                     <span className="font-mono" style={{ color:"#A614C3" }}>{JOB_TITLES.join(" / ")}</span>
                   </div>
                 </div>
@@ -9688,7 +9688,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                   { value: "lastName",  label: "Last Name" },
                   { value: "email",     label: "Email" },
                   { value: "admin",     label: "Admin (Yes/No)" },
-                  { value: "jobTitle",  label: "Job Title" },
+                  { value: "jobTitle",  label: "Job title" },
                   { value: "phone",     label: "Phone" },
                   { value: "ext",       label: "Ext" },
                   { value: "address",   label: "Address (optional)" },
@@ -9850,7 +9850,7 @@ function AgencyDetailView({ agency, isDark, onBack, c, btnGrad, stars, onToggleS
                   { key: "firstName", label: "First Name", required: true,  width: 120, kind: "text" },
                   { key: "lastName",  label: "Last Name",  required: true,  width: 120, kind: "text" },
                   { key: "admin",     label: "Admin",      required: true,  width: 90,  kind: "select", options: ["Yes", "No"] as const },
-                  { key: "jobTitle",  label: "Job Title",  required: true,  width: 145, kind: "select", options: JOB_TITLES },
+                  { key: "jobTitle",  label: "Job title",  required: true,  width: 145, kind: "select", options: JOB_TITLES },
                   { key: "email",     label: "Email",      required: true,  width: 200, kind: "text" },
                   { key: "phone",     label: "Phone",      required: true,  width: 130, kind: "text" },
                   { key: "ext",       label: "Ext",        required: false, width: 70,  kind: "text" },
@@ -11227,7 +11227,7 @@ export default function Agencies({ isDark, clientMode = false, initialTab, pageT
   const [agenciesHiddenCols, setAgenciesHiddenCols] = useState<Set<string>>(new Set());
   const USERS_COLS: Array<{ key: string; label: string }> = [
     { key: "admin",    label: "Admin"     },
-    { key: "jobTitle", label: "Job Title" },
+    { key: "jobTitle", label: "Job title" },
     { key: "email",    label: "Email"     },
     { key: "phone",    label: "Phone"     },
     { key: "ext",      label: "Ext"       },
@@ -11532,7 +11532,7 @@ export default function Agencies({ isDark, clientMode = false, initialTab, pageT
       const allCols: Array<{ key: string; label: string; get: (u: typeof mockAgencyUsers[number]) => string }> = [
         { key: "name",     label: "Name",      get: u => u.name },
         { key: "admin",    label: "Admin",     get: u => u.isAdmin ? "Yes" : "No" },
-        { key: "jobTitle", label: "Job Title", get: u => u.jobTitle },
+        { key: "jobTitle", label: "Job title", get: u => u.jobTitle },
         { key: "email",    label: "Email",     get: u => u.email },
         { key: "phone",    label: "Phone",     get: u => u.phone },
         { key: "ext",      label: "Ext",       get: u => u.ext || "" },
@@ -11693,7 +11693,7 @@ export default function Agencies({ isDark, clientMode = false, initialTab, pageT
       const allCols: Array<{ key: string; label: string; get: (u: typeof mockAgencyUsers[number]) => string }> = [
         { key: "name",     label: "Name",      get: u => u.name },
         { key: "admin",    label: "Admin",     get: u => u.isAdmin ? "Yes" : "No" },
-        { key: "jobTitle", label: "Job Title", get: u => u.jobTitle },
+        { key: "jobTitle", label: "Job title", get: u => u.jobTitle },
         { key: "email",    label: "Email",     get: u => u.email },
         { key: "phone",    label: "Phone",     get: u => u.phone },
         { key: "ext",      label: "Ext",       get: u => u.ext || "" },
@@ -13324,7 +13324,7 @@ export default function Agencies({ isDark, clientMode = false, initialTab, pageT
                     <button onClick={e => { e.stopPropagation(); setAllUsersJobOpen(o => !o); }}
                       className="flex items-center gap-1 select-none cursor-pointer text-[11px] font-bold uppercase tracking-wider"
                       style={{ fontFamily: FONT, color: allUsersJobFilter.size > 0 ? "#A614C3" : c.muted }}>
-                      Job Title<ChevronDown className="w-3 h-3 ml-0.5" />
+                      Job title<ChevronDown className="w-3 h-3 ml-0.5" />
                     </button>
                     {allUsersJobOpen && (
                       <div className="absolute left-0 top-8 z-30 w-[240px] rounded-xl shadow-xl overflow-hidden normal-case tracking-normal"

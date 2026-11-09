@@ -178,7 +178,7 @@ export default function TeamSetupModal({ isDark, open, onClose, onRemindLater, o
               <p className="text-[12.5px] mt-1" style={{ fontFamily: FONT, color: muted, lineHeight: 1.5 }}>
                 You&apos;re set as an Admin because you&apos;re the primary contact. Admins can view accounting
                 statements and add, edit, or delete users. Turn on Admin for anyone who needs it, and check each
-                person&apos;s Job Title.
+                person&apos;s job title.
               </p>
               <p className="text-[12.5px] mt-1.5" style={{ fontFamily: FONT, color: muted, lineHeight: 1.5 }}>
                 You can add Admins anytime in{" "}
@@ -375,7 +375,7 @@ export default function TeamSetupModal({ isDark, open, onClose, onRemindLater, o
             {missingTitleCount > 0 && (
               <>
                 {" · "}
-                <span>{missingTitleCount} without Job Title — you can add them later</span>
+                <span>{missingTitleCount} without a job title</span>
               </>
             )}
           </div>
