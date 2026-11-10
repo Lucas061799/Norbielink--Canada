@@ -380,7 +380,21 @@ Out of scope for MVP. If a Principal leaves, the existing **Archive User flow** 
 
 ---
 
-## 12. Open questions for backend
+## 12. Admin-gated features
+
+Features gated to `isAdmin: true` users. Non-admin users do not see the entry point at all (hide, don't disable) — no sidenav link, no tab, no action row.
+
+### 12.1 Accounting → Statements
+
+- **Who sees it**: Admin users only (`isAdmin: true`), on both the Agency Detail → Accounting tab and the sidenav Accounting group.
+  - Specifically the **Statements** sub-item (Commission Statement + Statement of Account). The other Accounting items (eCheck / Credit Authorization Form, Payment Types) remain visible to all users on the agency.
+- **Why**: Commission data is sensitive compensation information. Agency Principals control who on their team gets to see it; by default only they do. This matches how brokers already treat commission reports today (Principal-only email distribution).
+- **Non-admin behavior**: The Statements row is omitted from the sidenav Accounting group and from the Accounting tab's sub-nav. Direct URL navigation returns the user to the Accounting tab's default sub-tab with no error message (treated as not-found, not permission-denied, to avoid confirming the surface exists).
+- **Internal (BTIS) view**: Internal users always see Statements regardless of impersonation state. When impersonating a non-admin agency user via "Start a Quote", the chrome still reflects internal visibility — Statements remains visible — because the impersonation is scoped to quote submission, not to full UI role masking.
+
+---
+
+## 13. Open questions for backend
 
 - What is the source of truth for `apptDate` (used for NEW indicator)?
 - What is the threshold for "Dormant"? Currently 12 months of no login — confirm.

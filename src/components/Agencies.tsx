@@ -10367,15 +10367,85 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
   const [website, setWebsite]         = useState(initialDraft?.website ?? "");
   const [phone, setPhone]             = useState(initialDraft?.phone ?? "");
   const [tollFree, setTollFree]       = useState(initialDraft?.tollFree ?? "");
-  const [npn] = useState(initialDraft?.npn ?? "");
+  const [npn, setNpn]                 = useState(initialDraft?.npn ?? "");
   const [licenseNo, setLicenseNo]     = useState(initialDraft?.licenseNo ?? "");
   const [licenseExp, setLicenseExp]   = useState(initialDraft?.licenseExp ?? "03/24/2026");
   const [eoPolicyNo, setEoPolicyNo]   = useState(initialDraft?.eoPolicyNo ?? "");
   const [eoExp, setEoExp]             = useState(initialDraft?.eoExp ?? "03/24/2026");
-  // NIPR verification (phase 1 Add Agency flow) removed on 2026-11-02.
-  // Fields License # / Expiration Date / NPN are back to plain manual
-  // entry. Re-add verify + state machine when the Phase 1 NIPR
-  // integration ships.
+
+  // ── NIPR lookup (prefill block at the top) ────────────────────────────
+  // Instead of making Shannon type ~15 fields and only *then* discovering
+  // the NPN can't be resolved, we flip the flow: enter License#+State OR
+  // FEIN at the top, hit NIPR, and prefill everything we can. The form
+  // stays fully editable afterwards. Phase 1 scope — real NIPR wiring
+  // lands with the batch job; this is the UX shell + mocked response.
+  type LookupMethod = "license" | "fein";
+  const AF_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+  const [lookupMethod,  setLookupMethod]  = useState<LookupMethod>("license");
+  const [lookupLicense, setLookupLicense] = useState("");
+  const [lookupState,   setLookupState]   = useState("");
+  const [lookupStateOpen, setLookupStateOpen] = useState(false);
+  const [lookupFein,    setLookupFein]    = useState("");
+  const [lookupStatus,  setLookupStatus]  = useState<"idle" | "searching" | "found" | "notfound">("idle");
+  const [lookupSummary, setLookupSummary] = useState<{ name: string; npn: string; filled: number } | null>(null);
+  const [lookupSkipped, setLookupSkipped] = useState(false);
+  const [prefilledKeys, setPrefilledKeys] = useState<Set<string>>(new Set());
+
+  const runLookup = () => {
+    // Guard: need enough info to actually call NIPR
+    if (lookupMethod === "license" && (!lookupLicense.trim() || !lookupState)) return;
+    if (lookupMethod === "fein"    && lookupFein.replace(/\D/g, "").length < 9) return;
+    setLookupStatus("searching");
+    // Mocked response — swap for the real fetch once the NIPR adapter ships.
+    // Dev sentinels so the notfound path is demoable without a backend:
+    //   license contains "999"  → notfound
+    //   FEIN starts with "00-" → notfound
+    const willMiss =
+      (lookupMethod === "license" && lookupLicense.includes("999")) ||
+      (lookupMethod === "fein"    && lookupFein.replace(/\D/g, "").startsWith("000"));
+    window.setTimeout(() => {
+      if (willMiss) {
+        setLookupStatus("notfound");
+        return;
+      }
+      // Pretend NIPR returned an agency. In reality the shape varies by
+      // method (license lookup → one license; FEIN lookup → the primary).
+      const resolvedLicense = lookupMethod === "license" ? lookupLicense : "0J123456";
+      const resolvedState   = lookupMethod === "license" ? lookupState   : "CA";
+      const resolvedFein    = lookupMethod === "fein"    ? lookupFein    : "87-1234567";
+      const prefill: Record<string, () => void> = {
+        agencyName:  () => setAgencyName("Acme Insurance Agency, LLC"),
+        agencyCode:  () => setAgencyCode("AIA-7421"),
+        bizType:     () => setBizType("LLC"),
+        taxId:       () => setTaxId(resolvedFein),
+        licenseNo:   () => setLicenseNo(resolvedLicense),
+        licenseExp:  () => setLicenseExp("12/31/2026"),
+        npn:         () => setNpn("19801234"),
+        street:      () => setStreet("1250 Market St"),
+        city:        () => setCity("San Francisco"),
+        stateVal:    () => setStateVal(resolvedState),
+        zip:         () => setZip("94103"),
+        phone:       () => setPhone("(415) 555-0100"),
+        website:     () => setWebsite("https://acmeinsurance.com"),
+      };
+      Object.values(prefill).forEach(fn => fn());
+      setPrefilledKeys(new Set(Object.keys(prefill)));
+      setLookupSummary({
+        name: "Acme Insurance Agency, LLC",
+        npn: "19801234",
+        filled: Object.keys(prefill).length,
+      });
+      setLookupStatus("found");
+      setLookupSkipped(false);
+    }, 650);
+  };
+
+  const clearLookup = () => {
+    setLookupStatus("idle");
+    setLookupSummary(null);
+    setPrefilledKeys(new Set());
+  };
+  // ──────────────────────────────────────────────────────────────────────
   const [affiliations, setAffiliations] = useState<Set<string>>(new Set(initialDraft?.affiliations ?? ["AAA/ACG (AC364)"]));
   const [workersComp, setWorkersComp]   = useState<Set<string>>(new Set(initialDraft?.workersComp ?? ["AIG"]));
   const [badges, setBadges]             = useState<Set<string>>(new Set(initialDraft?.badges ?? []));
@@ -10657,7 +10727,7 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
 
   return (
     <div className="flex flex-col flex-1 min-h-0" style={{ fontFamily: FONT }}
-      onClick={() => { setStatusOpen(false); setBizTypeOpen(false); setReasonOpen(false); }}>
+      onClick={() => { setStatusOpen(false); setBizTypeOpen(false); setReasonOpen(false); setLookupStateOpen(false); }}>
       {/* Form card + breadcrumb scroll together */}
       <div className="flex-1 overflow-y-auto pr-1">
         {/* Breadcrumb */}
@@ -10706,6 +10776,193 @@ function AddAgencyForm({ isDark, onSaveForLater, onDiscard, initialDraft, c, btn
               <Bookmark className="w-3.5 h-3.5" />Save for Later
             </button>
           </div>
+
+          {/* ── Prefill from NIPR ──────────────────────────────────────────
+              Search-first flow. Shannon enters License#+State or FEIN, we
+              ping NIPR, and prefill ~11 fields. The panel collapses into a
+              teal success strip on hit, and can always be skipped. */}
+          {lookupStatus !== "found" && !lookupSkipped && (
+            <div className="rounded-xl p-4 mb-6 relative" style={{
+              background: isDark ? "rgba(255,255,255,0.03)" : "#F9FAFB",
+              border: `1px solid ${c.border}`,
+            }}>
+              {/* Row 1 — icon + headline + subtitle */}
+              <div className="flex items-start gap-3 pr-8">
+                {/* Razz-gradient Search icon — matches the gradient-stroked icon in TeamSetupBanner */}
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="lookupIconGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
+                      <stop offset="0%" stopColor="#5C2ED4" />
+                      <stop offset="100%" stopColor="#A614C3" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="11" cy="11" r="7" stroke="url(#lookupIconGrad)" />
+                  <path d="m20 20-3.5-3.5" stroke="url(#lookupIconGrad)" />
+                </svg>
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold" style={{
+                    ...font,
+                    backgroundImage: "linear-gradient(88.54deg, #5C2ED4 0.1%, #A614C3 63.88%)",
+                    backgroundClip: "text", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                  }}>
+                    Start with a lookup
+                  </div>
+                  <div className="text-[12px] mt-0.5" style={{ ...font, color: c.muted }}>
+                    Enter the agency&apos;s license + state{" "}<strong style={{ color: c.text }}>or</strong>{" "}FEIN. We&apos;ll pull the rest from NIPR — you can still edit everything.
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2 — method toggle + inputs + Search on one row, indented to line up with the title text (past the icon) */}
+              <div className="mt-3 pl-8 flex items-center gap-2 flex-wrap">
+                <div className="inline-flex p-[3px] rounded-lg" style={{ background: c.cardBg, border: `1px solid ${c.border}` }}>
+                  {([{ k: "license" as const, l: "License # + State" }, { k: "fein" as const, l: "FEIN" }]).map(opt => {
+                    const active = lookupMethod === opt.k;
+                    return (
+                      <button key={opt.k} type="button"
+                        onClick={() => { setLookupMethod(opt.k); setLookupStatus("idle"); }}
+                        className="px-3 py-1 rounded-md text-[12px] font-semibold transition-all"
+                        style={{
+                          ...font,
+                          background: active ? "rgba(166,20,195,0.10)" : "transparent",
+                          color: active ? "#A614C3" : c.muted,
+                          border: "none", cursor: "pointer",
+                        }}>
+                        {opt.l}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {lookupMethod === "license" ? (
+                    <>
+                      <input value={lookupLicense}
+                        onChange={e => setLookupLicense(e.target.value)}
+                        placeholder="License number"
+                        style={{ ...inputStyle, height: 34, width: 220, padding: "6px 12px" }} />
+                      <div className="relative" onClick={e => e.stopPropagation()} style={{ width: 110 }}>
+                        <button type="button"
+                          onClick={() => setLookupStateOpen(o => !o)}
+                          className="w-full flex items-center justify-between outline-none"
+                          style={{ ...inputStyle, height: 34, padding: "6px 10px", cursor: "pointer" }}>
+                          <span style={{ color: lookupState ? c.text : c.muted }}>{lookupState || "State"}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${lookupStateOpen ? "rotate-180" : ""}`} style={{ color: c.muted }} />
+                        </button>
+                        {lookupStateOpen && (
+                          <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-lg overflow-auto"
+                            style={{ background: c.cardBg, border: `1px solid ${c.border}`, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 240 }}>
+                            {AF_STATES.map(s => {
+                              const active = lookupState === s;
+                              return (
+                                <button key={s} type="button"
+                                  onClick={() => { setLookupState(s); setLookupStateOpen(false); }}
+                                  className="w-full text-left px-3 py-2 text-[13px] transition-colors"
+                                  style={{ ...font, color: active ? "#A614C3" : c.text, background: active ? "rgba(168,85,247,0.08)" : "transparent" }}
+                                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = c.hoverBg; }}
+                                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+                                  {s}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <input value={lookupFein}
+                      onChange={e => setLookupFein(e.target.value)}
+                      placeholder="FEIN (00-0000000)"
+                      inputMode="numeric"
+                      style={{ ...inputStyle, height: 34, width: 220, padding: "6px 12px" }} />
+                  )}
+
+                  <button type="button" onClick={runLookup}
+                    disabled={
+                      lookupStatus === "searching" ||
+                      (lookupMethod === "license" && (!lookupLicense.trim() || !lookupState)) ||
+                      (lookupMethod === "fein"    && lookupFein.replace(/\D/g, "").length < 9)
+                    }
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white transition-all whitespace-nowrap"
+                    style={{
+                      ...font,
+                      background:
+                        (lookupStatus === "searching") ||
+                        (lookupMethod === "license" && (!lookupLicense.trim() || !lookupState)) ||
+                        (lookupMethod === "fein"    && lookupFein.replace(/\D/g, "").length < 9)
+                          ? "#C4B5E5"
+                          : btnGrad,
+                      border: "none",
+                      cursor:
+                        (lookupStatus === "searching") ||
+                        (lookupMethod === "license" && (!lookupLicense.trim() || !lookupState)) ||
+                        (lookupMethod === "fein"    && lookupFein.replace(/\D/g, "").length < 9)
+                          ? "not-allowed"
+                          : "pointer",
+                    }}>
+                    {lookupStatus === "searching"
+                      ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />Searching…</>
+                      : <><Search className="w-3.5 h-3.5" />Search <ArrowRight className="w-3.5 h-3.5" /></>}
+                  </button>
+                </div>
+
+              {lookupStatus === "notfound" && (
+                <div className="mt-2.5 text-[12px] flex items-start gap-1.5" style={{ ...font, color: "#EF4444" }}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-[1px]" />
+                  <span>We couldn&apos;t find an agency with those details. Try the other method, or close this card to fill the form manually.</span>
+                </div>
+              )}
+
+              {/* Skip × — pinned to card top-right, out of the two-row flow */}
+              <button type="button" onClick={() => setLookupSkipped(true)}
+                title="Skip — fill the form manually"
+                className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded transition-colors"
+                style={{ color: c.muted, background: "transparent", border: "none", cursor: "pointer" }}
+                onMouseEnter={e => { e.currentTarget.style.background = c.hoverBg; e.currentTarget.style.color = c.text; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = c.muted; }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Success strip — replaces the panel after a hit. User can
+              clear & redo, which re-opens the lookup panel above. */}
+          {lookupStatus === "found" && lookupSummary && (
+            <div className="rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-3" style={{
+              background: "rgba(115,201,183,0.10)",
+              border: "1px solid rgba(115,201,183,0.35)",
+            }}>
+              <div className="flex items-center gap-2 text-[13px] min-w-0" style={{ ...font, color: c.text }}>
+                <span className="flex-shrink-0 inline-flex items-center justify-center rounded-full" style={{
+                  width: 24, height: 24,
+                  background: "rgba(115,201,183,0.22)",
+                }}>
+                  <Check className="w-3.5 h-3.5" strokeWidth={2.5} style={{ color: "#73C9B7" }} />
+                </span>
+                <strong className="truncate">{lookupSummary.name}</strong>
+                <span style={{ color: c.muted }}>·</span>
+                <span className="whitespace-nowrap">NPN {lookupSummary.npn}</span>
+                <span style={{ color: c.muted }}>·</span>
+                <span className="whitespace-nowrap" style={{ color: c.muted }}>{lookupSummary.filled} fields prefilled — review &amp; edit below</span>
+              </div>
+              <button type="button" onClick={clearLookup}
+                className="text-[12px] font-semibold transition-colors whitespace-nowrap"
+                style={{ ...font, color: "#73C9B7", background: "transparent", border: "none", cursor: "pointer" }}>
+                Clear &amp; redo
+              </button>
+            </div>
+          )}
+
+          {/* Skipped state — tiny inline link to bring the lookup back */}
+          {lookupSkipped && lookupStatus !== "found" && (
+            <div className="mb-6 text-[12px] flex items-center gap-1.5" style={{ ...font, color: c.muted }}>
+              <span>Filling manually.</span>
+              <button type="button" onClick={() => setLookupSkipped(false)}
+                className="font-semibold transition-colors"
+                style={{ color: "#A614C3", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                Use NIPR lookup instead
+              </button>
+            </div>
+          )}
 
           {/* Row 1: Name | Code | Type */}
           <div className="grid grid-cols-3 gap-6 mb-6">

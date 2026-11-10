@@ -103,6 +103,42 @@ export default function DashboardShell({ children, pageTitle }: DashboardShellPr
   const [impersonationSpotlightActive, setImpersonationSpotlightActive] = useState(false);
   const [impersonationSpotlightFired, setImpersonationSpotlightFired] = useState(false);
 
+  // Users-tab coachmark snooze. The banner on Admin → Users ("Assign admins
+  // & titles here") is persistent until team setup is actually done, but
+  // staring at the same prompt forever is noise if the user genuinely isn't
+  // ready to configure it yet. The X on the banner stores a dismiss timestamp
+  // and the banner stays hidden for TEAM_SETUP_COACH_SNOOZE_MS, then quietly
+  // comes back on the next render so they don't forget it entirely.
+  //
+  // Snooze duration: short in this mock (2 min) so the behaviour is visible
+  // during a demo. In production this would be ~24h (or re-prompt once per
+  // session, whichever is longer) — the pattern is the same.
+  const TEAM_SETUP_COACH_SNOOZE_MS = 2 * 60 * 1000;
+  const [teamSetupUsersCoachDismissedAt, setTeamSetupUsersCoachDismissedAt] = useState<number | null>(null);
+  const [coachSnoozeTick, setCoachSnoozeTick] = useState(0);
+  const teamSetupUsersCoachVisible =
+    !teamSetupDone &&
+    (teamSetupUsersCoachDismissedAt === null ||
+      Date.now() - teamSetupUsersCoachDismissedAt >= TEAM_SETUP_COACH_SNOOZE_MS);
+
+  useEffect(() => {
+    if (teamSetupDone || teamSetupUsersCoachDismissedAt === null) return;
+    const remaining =
+      TEAM_SETUP_COACH_SNOOZE_MS - (Date.now() - teamSetupUsersCoachDismissedAt);
+    if (remaining <= 0) {
+      setTeamSetupUsersCoachDismissedAt(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      setTeamSetupUsersCoachDismissedAt(null);
+      setCoachSnoozeTick((n) => n + 1);
+    }, remaining);
+    return () => clearTimeout(t);
+  }, [teamSetupDone, teamSetupUsersCoachDismissedAt, TEAM_SETUP_COACH_SNOOZE_MS]);
+  // coachSnoozeTick is read here only so React includes the forced re-render
+  // in the dependency surface for `teamSetupUsersCoachVisible` consumers.
+  void coachSnoozeTick;
+
   useEffect(() => {
     if (!teamSetupSpotlightActive) return;
     const t = setTimeout(() => setTeamSetupSpotlightActive(false), 8000);

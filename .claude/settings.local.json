@@ -89,7 +89,10 @@
       "Bash(awk 'BEGIN{RS=\"}}\"} /background:/ && /backgroundImage:/ {print NR\": \"substr\\($0,1,200\\); print \"---\"}')",
       "Bash(awk 'BEGIN{RS=\"}}\"} /background:/ && /backgroundImage:/ {print substr\\($0,length\\($0\\)-200\\); print \"===\"}' /Users/lucasye/Norbielink-design/src/components/Sidenav.tsx)",
       "Bash(awk 'BEGIN{RS=\"}}\"} /background:/ && /backgroundImage:/ {print substr\\($0,length\\($0\\)-200\\); print \"===\"}' /Users/lucasye/Norbielink-design/src/components/Marketplace.tsx)",
-      "Bash(awk 'BEGIN{RS=\"}}\"} /background:/ && /backgroundImage:/ {print substr\\($0,length\\($0\\)-250\\); print \"===\"}' /Users/lucasye/Norbielink-design/src/components/Clients.tsx)"
+      "Bash(awk 'BEGIN{RS=\"}}\"} /background:/ && /backgroundImage:/ {print substr\\($0,length\\($0\\)-250\\); print \"===\"}' /Users/lucasye/Norbielink-design/src/components/Clients.tsx)",
+      "Bash(mkdir -p /private/tmp/claude-501/-Users-lucasye-Norbielink-design/c93a1f2c-0e6a-4296-9c4c-6113ea3a5623/scratchpad/itc_spec)",
+      "Bash(rm -rf ./*)",
+      "Bash(unzip -q \"/Users/lucasye/Documents/Agency Registration changes in Norbie Link.docx\" -d .)"
     ]
   }
 }
